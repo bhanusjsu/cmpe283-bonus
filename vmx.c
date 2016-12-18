@@ -79,6 +79,74 @@ module_param_named(unrestricted_guest,
 			enable_unrestricted_guest, bool, S_IRUGO);
 
 static bool __read_mostly enable_ept_ad_bits = 1;
+
+// creating an array from all the exit names
+
+char exit_name[60][50]={"EXIT_REASON_EXCEPTION_NMI",
+"EXIT_REASON_EXTERNAL_INTERRUPT",
+"EXIT_REASON_TRIPLE_FAULT",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_PENDING_INTERRUPT",
+"EXIT_REASON_NMI_WINDOW",
+"EXIT_REASON_TASK_SWITCH",
+"EXIT_REASON_CPUID",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_HLT",
+"EXIT_REASON_INVD",
+"EXIT_REASON_INVLPG",
+"EXIT_REASON_RDPMC",
+"EXIT_REASON_RDTSC",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_VMCALL",
+"EXIT_REASON_VMCLEAR",
+"EXIT_REASON_VMLAUNCH",
+"EXIT_REASON_VMPTRLD",
+"EXIT_REASON_VMPTRST",
+"EXIT_REASON_VMREAD",
+"EXIT_REASON_VMRESUME",
+"EXIT_REASON_VMWRITE",
+"EXIT_REASON_VMOFF",
+"EXIT_REASON_VMON",
+"EXIT_REASON_CR_ACCESS",
+"EXIT_REASON_DR_ACCESS",
+"EXIT_REASON_IO_INSTRUCTION",
+"EXIT_REASON_MSR_READ",
+"EXIT_REASON_MSR_WRITE",
+"EXIT_REASON_INVALID_STATE",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_MWAIT_INSTRUCTION",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_MONITOR_INSTRUCTION",
+"EXIT_REASON_PAUSE_INSTRUCTION",
+"EXIT_REASON_MCE_DURING_VMENTRY",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_TPR_BELOW_THRESHOLD",
+"EXIT_REASON_APIC_ACCESS",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_EPT_VIOLATION",
+"EXIT_REASON_EPT_MISCONFIG",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_WBINVD",
+"EXIT_REASON_XSETBV",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_INVPCID",
+"EXIT_REASON_UNKNOWN",
+"EXIT_REASON_UNKNOWN"};
+
+static u32 count_exits[60]={0};
+static u32 count_events[500]={0};
+
 module_param_named(eptad, enable_ept_ad_bits, bool, S_IRUGO);
 
 static bool __read_mostly emulate_invalid_guest_state = true;
@@ -2302,6 +2370,9 @@ static void vmx_queue_exception(struct kvm_vcpu *vcpu, unsigned nr,
 		intr_info |= INTR_TYPE_HARD_EXCEPTION;
 
 	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, intr_info);
+	count_events[vcpu->vcpu_id]++;
+	printk("CPU Number: %d\n",vcpu->vcpu_id);
+	printk("Number of  events %d\n",count_events[vcpu->vcpu_id]);
 }
 
 static bool vmx_rdtscp_supported(void)
@@ -4953,6 +5024,9 @@ static void vmx_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
 	setup_msrs(vmx);
 
 	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, 0);  /* 22.2.1 */
+	count_events[vcpu->vcpu_id]++;
+	printk("CPU Number: %d\n",vcpu->vcpu_id);
+	printk("Number of  events %d\n",count_events[vcpu->vcpu_id]);
 
 	if (cpu_has_vmx_tpr_shadow() && !init_event) {
 		vmcs_write64(VIRTUAL_APIC_PAGE_ADDR, 0);
@@ -5056,6 +5130,9 @@ static void vmx_inject_irq(struct kvm_vcpu *vcpu)
 	} else
 		intr |= INTR_TYPE_EXT_INTR;
 	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, intr);
+	count_events[vcpu->vcpu_id]++;
+	printk("CPU Number: %d\n",vcpu->vcpu_id);
+	printk("Number of  events %d\n",count_events[vcpu->vcpu_id]);
 }
 
 static void vmx_inject_nmi(struct kvm_vcpu *vcpu)
@@ -5087,6 +5164,9 @@ static void vmx_inject_nmi(struct kvm_vcpu *vcpu)
 	}
 	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD,
 			INTR_TYPE_NMI_INTR | INTR_INFO_VALID_MASK | NMI_VECTOR);
+	count_events[vcpu->vcpu_id]++;
+	printk("CPU Number: %d\n",vcpu->vcpu_id);
+	printk("Number of  events %d\n",count_events[vcpu->vcpu_id]);
 }
 
 static bool vmx_get_nmi_mask(struct kvm_vcpu *vcpu)
@@ -8096,7 +8176,10 @@ static int vmx_handle_exit(struct kvm_vcpu *vcpu)
 	/* If guest state is invalid, start emulating */
 	if (vmx->emulation_required)
 		return handle_invalid_guest_state(vcpu);
-
+	
+	count_exits[exit_reason]++;
+    
+    printk("The no of exists for exit reason %s are: %d \n",exit_name[exit_reason],count_exits[exit_reason]);
 	if (is_guest_mode(vcpu) && nested_vmx_exit_handled(vcpu)) {
 		nested_vmx_vmexit(vcpu, exit_reason,
 				  vmcs_read32(VM_EXIT_INTR_INFO),
@@ -8514,6 +8597,9 @@ static void vmx_cancel_injection(struct kvm_vcpu *vcpu)
 				  VM_ENTRY_EXCEPTION_ERROR_CODE);
 
 	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, 0);
+	count_events[vcpu->vcpu_id]++;
+	printk("CPU Number: %d\n",vcpu->vcpu_id);
+	printk("Number of  events %d\n",count_events[vcpu->vcpu_id]);
 }
 
 static void atomic_switch_perf_msrs(struct vcpu_vmx *vmx)
@@ -9541,6 +9627,10 @@ static void prepare_vmcs02(struct kvm_vcpu *vcpu, struct vmcs12 *vmcs12)
 	}
 	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD,
 		vmcs12->vm_entry_intr_info_field);
+	count_events[vcpu->vcpu_id]++;
+	printk("CPU Number: %d\n",vcpu->vcpu_id);
+	printk("Number of  events %d\n",count_events[vcpu->vcpu_id]);
+	
 	vmcs_write32(VM_ENTRY_EXCEPTION_ERROR_CODE,
 		vmcs12->vm_entry_exception_error_code);
 	vmcs_write32(VM_ENTRY_INSTRUCTION_LEN,
